@@ -1,48 +1,38 @@
-; //****************************************************************************************************************************
-; //Program name: "stringtof". This program will be called from _start.asm and will receive a char array. The program will then
-; //               take that char array and convert it into a float number. It will then be returned to _start.asm as a float number (xmm)
-; //               Copyright (C) 2022 Saul Ruiz.
-; //                                                                                                                           *
-; //This file is part of the software program "stringtof".                                                                   *
-; //stringtof is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License   *
-; //version 3 as published by the Free Software Foundation.                                                                    *
-; //stringtof is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied          *
-; //warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+;************************************************************************************************************************
+;Program name: "atolong".  This program accepts an array of char and converts that array to its corresponding integer   *
+;value.  This is a library function not specific to any one program.  Copyright (C) 2018  Floyd Holliday                *
+;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public      *
+;License version 3 as published by the Free Software Foundation.  This program is distributed in the hope that it will  *
+;be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  *
+;PURPOSE.  See the GNU General Public License for more details.  A copy of the GNU General Public License v3 is         *
+;available here:  <https://www.gnu.org/licenses/>.                                                                      *
+;************************************************************************************************************************
 
-; //A copy of the GNU General Public License v3 is available here:  <https:;www.gnu.org/licenses/>.                            *
+;Author information
+;   Author name: Floyd Holliday
+;   Author's email: holliday@fullerton.edu
 
+;Function information
+;   Function name: atolong
+;   Programming language: X86
+;   Language syntax: Intel
+;   Function prototype:  long int atolong (char * number_string); 
+;   Reference: None
+;   Input parameter: The char array passed to this function must contain valid integral data.
+;   Output parameter: A long integer that is faithfully represented by the incoming parameter.
 
-; //****************************************************************************************************************************
-; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+;Assemble: nasm -f elf64 -o atol.o -l atol.lis atol.asm
 
-; //Author information
-; //  Author name: Saul Ruiz
-; //  Author email: saul385@csu.fullerton.edu
-; //  Author Section: M/W 12:00pm-1:50pm
-; //
-; //Program information
-; //  Program name: stringtof
-; //  Programming languages: seven modules in X86
-; //  Date program began: 2022 October 26
-; //  Date of last update: 2022 October 30
-; //  Date of reorganization of comments: 2022 October 30
-; //  Files in this program: _start.asm, _math.asm, cosine.asm, ftoa.asm, itoa.asm, stringtof.asm strlen.asm
-; //  Status: Finished.  The program was tested extensively with no errors in Tuffix 2020 Edition.
-; //
-; //Purpose
-; //  The purpose of this file is to receive a char array, convert that array into a float number, and
-; //  return the result as a float number (xmm)
-; //
-; //This file
-; //   File name: stringtof.asm
-; //   Language: x86
-; //   Max page width: 139 columns
-; //   Compile: nasm -f elf64 -o stringtof.o -l stringtof.lis stringtof.asm
-; //   Linker: ld -o final.out _start.o strlen.o cosine.o itoa.o _math.o ftoa.o stringtof.o 
-; //
-; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
-; //
-; //===== Begin code area ===========================================================================================================
+;Date development began: 2018-March-28
+;Date comments restructured: 2022-July-16
+
+;Names
+;   The function "atolong" was intended to be called atol, however there already is a function in the C++ standard library
+;   with that name.  To avoid any possible conflict this function received the longer name, namely: atolong.  A simple web
+;   search will produce lots of information about the original atol.
+
+;===== Begin executable code section ====================================================================================
+
 ;Assembler directives
 base_number equ 10                      ;10 base of the decimal number system
 ascii_zero equ 48                       ;48 is the ascii value of '0'
@@ -50,23 +40,28 @@ null equ 0
 minus equ '-'
 decimal_point equ '.'
 
-global stringtof                          
+;Global declaration for linking files.
+global stringtof                          ;This makes atolong callable by functions outside of this file.
 
-segment .data                          
-   ;empy
+segment .data                           ;Place initialized data here
+   ;This segment is empy
 
-segment .bss                            
-   ;empty
+segment .bss                            ;Declare pointers to un-initialized space in this segment.
+   ;This segment is empty
 
 ;==============================================================================================================================
 ;===== Begin the executable code here.
 ;==============================================================================================================================
-segment .text                           
+segment .text                           ;Place executable instructions in this segment.
 
-stringtof:                               
-;pushes 
-push rbp                               
-mov  rbp, rsp                           
+stringtof:                                ;Entry point.  Execution begins here.
+
+;The next two instructions should be performed at the start of every assembly program.
+push rbp                                ;This marks the start of a new stack frame belonging to this execution of this function.
+mov  rbp, rsp                           ;rbp holds the address of the start of this new stack frame.
+;The following pushes are performed for safety of the data that may already be in the remaining GPRs.
+;This backup process is especially important when this module is called by another asm module.  It is less important when called
+;called from a C or C++ function.
 push rbx
 push rcx
 push rdx
@@ -83,20 +78,21 @@ push r15
 pushf
 
 ;Designate the purpose of selected registers: r8, r9, r10
-mov r8, rdi                   
-mov r9, 0                     
-mov r10, 0                    
-xorpd xmm15, xmm15            
-mov r11, 0 
-mov r13, 0 
-; Checking if the first character is a '+' or '-'.
-cmp byte [r8+1*0], '+'        
-jne compareI
+mov r8, rdi                   ;Copy the pointer to char data to r8
+mov r9, 0                     ;r9 = array index
+mov r10, 0                    ;r10 = long integer; final integer will be here.
+xorpd xmm15, xmm15            ; Final answer float
+
+; Checking the first character to see if it's a '+' or '-'
+;The first byte in the array may be '+' or '-', which are valid numeric characters.
+;We need to check for the presence of a leading sign.
+cmp byte [r8+1*0], '+'        ;Check for leading plus sign
+jne next_comparison
 mov r9, 1
 jmp begin_loop
 
-compareIt:
-cmp byte [r8+1*0], '-'        
+next_comparison:
+cmp byte [r8+1*0], '-'        ;Check for leading minus sign
 jne begin_loop
 mov r9, 1
 
@@ -104,6 +100,8 @@ mov r9, 1
 ; '1235.23\0'
 ; 123523 -> integer -> cvtsi2sd into xmm register -> divide by 10 however many decimal places
 ; count 2 decimal places 123523/10/10 = 1235.23
+mov r11, 0 ; num_decimal_places
+mov r13, 0 ; This represents if we already decimal place (flag: hit_decimal_place)
 begin_loop:
 cmp byte [r8+1*r9], null      ;Check the termination condition of the loop
 je loop_finished
@@ -159,12 +157,12 @@ loop_finished:
 
 
 ; 123445 decimal_place = 2 
-;Place 123445 into GPR
+; TODO: Place 123445 into GPR
 ; it's already in r10
 
-; Convert GPR to XMM register
+; TODO: Convert GPR to XMM register
 cvtsi2sd xmm15, r10
-; Divide the XMM register the number of decimal places
+; TODO: Divide the XMM register the number of decimal places
 ; From gdb we see that num_decimal_place is always 1 greater
 ; sub tract 1 from r15 first
 sub r11, 1
@@ -185,7 +183,7 @@ inc r10
 jmp forloop
 endForLoop:
 
-; Move this negative number handler so that an input "-15.25" will be converted.
+; TODO: Move this negative number handler so that an input "-15.25" will be converted.
 ;Set the computed value to negative if needed
 cmp byte [r8+1*0], minus      ;Check for leading minus sign
 jne positive
@@ -193,7 +191,7 @@ neg r10
 
 positive:
 mov rax, r10
-; Return the answer in xmm0
+; TODO: Return the answer in xmm0
 movsd xmm0, xmm15
 ;==================================================================================================================================
 ;Epilogue: restore data to the values held before this function was called.
